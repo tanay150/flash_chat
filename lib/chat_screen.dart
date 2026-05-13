@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flash_chat/welcome_screen.dart';
 import 'package:flutter/material.dart';
+import 'welcome_screen.dart';
 import 'constants (1).dart';
 
 User? loggedInUser;
@@ -9,8 +9,10 @@ User? loggedInUser;
 class ChatScreen extends StatefulWidget {
   static const String id = 'chat_screen';
 
+  const ChatScreen({Key? key}) : super(key: key);
+
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -25,23 +27,21 @@ class _ChatScreenState extends State<ChatScreen> {
     getCurrentUser();
   }
 
-  void getCurrentUser() async {
+  @override
+  void dispose() {
+    messageTextController.dispose();
+    super.dispose();
+  }
+
+  void getCurrentUser() {
     try {
       final user = _auth.currentUser;
       if (user != null) {
         loggedInUser = user;
-        print(loggedInUser!.email);
+        debugPrint('User logged in: ${loggedInUser!.email}');
       }
     } catch (e) {
-      print(e);
-    }
-  }
-
-  void messagesStream() async {
-    await for (var snapshot in _firestore.collection('messages').snapshots()) {
-      for (var message in snapshot.docs) {
-        print(message.data());
-      }
+      debugPrint('Error getting current user: $e');
     }
   }
 
@@ -53,17 +53,32 @@ class _ChatScreenState extends State<ChatScreen> {
         leading: null,
         actions: <Widget>[
           IconButton(
-            icon: Icon(Icons.close),
-            onPressed: () {
-              messagesStream();
-              Navigator.push(context,MaterialPageRoute(builder: (context) => WelcomeScreen(
-              ))
-
-              );
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              try {
+                await _auth.signOut();
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    WelcomeScreen.id,
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                debugPrint('Error logging out: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Error logging out'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
           ),
         ],
-        title: Text('⚡️Chat'),
+        title: const Text('⚡️Chat'),
         backgroundColor: Colors.lightBlueAccent,
       ),
       body: SafeArea(
@@ -72,14 +87,22 @@ class _ChatScreenState extends State<ChatScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             StreamBuilder(
-              stream: _firestore.collection('messages').snapshots(),
+              stream: _firestore
+                  .collection('messages')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 }
-                final messages = snapshot.data?.docs.reversed;
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                final messages = snapshot.data?.docs ?? [];
                 List<MessageBubble> messageWidgets = [];
-                for (var message in messages!) {
+
+                for (var message in messages) {
                   final messageText = message.get('text');
                   final messageSender = message.get('sender');
                   final currentUser = loggedInUser?.email;
@@ -91,19 +114,19 @@ class _ChatScreenState extends State<ChatScreen> {
 
                   messageWidgets.add(messageBubble);
                 }
+
                 return Expanded(
                   child: ListView(
                     reverse: true,
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 10.0,
                       vertical: 20.0,
                     ),
-                    children: [...messageWidgets],
+                    children: messageWidgets,
                   ),
                 );
               },
             ),
-
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(
@@ -112,7 +135,6 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       onChanged: (value) {
-                        //Do something with the user input.
                         messageText = value;
                       },
                       controller: messageTextController,
@@ -121,11 +143,32 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   TextButton(
                     onPressed: () {
+                      if (messageText.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please type a message'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                        return;
+                      }
+
                       messageTextController.clear();
 
                       _firestore.collection('messages').add({
-                        'text': messageText,
+                        'text': messageText.trim(),
                         'sender': loggedInUser?.email,
+                        'timestamp': FieldValue.serverTimestamp(),
+                      }).catchError((e) {
+                        debugPrint('Error sending message: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Error sending message'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       });
                     },
                     child: Text('Send', style: kSendButtonTextStyle),
@@ -145,7 +188,9 @@ class MessageBubble extends StatelessWidget {
     required this.messageText,
     required this.messageSender,
     required this.isMe,
-  });
+    Key? key,
+  }) : super(key: key);
+
   final String messageText;
   final String messageSender;
   final bool isMe;
@@ -155,32 +200,28 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Column(
-
-        crossAxisAlignment: isMe
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
             messageSender,
-            style: TextStyle(fontSize: 12.0, color: Colors.black54),
+            style: const TextStyle(fontSize: 12.0, color: Colors.black54),
           ),
-
           Material(
             elevation: 5.0,
             color: isMe ? Colors.lightBlueAccent : Colors.white,
             borderRadius: isMe
-                ? BorderRadius.only(
+                ? const BorderRadius.only(
                     topLeft: Radius.circular(30.0),
                     bottomLeft: Radius.circular(30.0),
                     bottomRight: Radius.circular(30.0),
                   )
-                : BorderRadius.only(
+                : const BorderRadius.only(
                     topRight: Radius.circular(30.0),
                     bottomLeft: Radius.circular(30.0),
                     bottomRight: Radius.circular(30.0),
                   ),
             child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
+              padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
               child: Text(
                 messageText,
                 style: TextStyle(
