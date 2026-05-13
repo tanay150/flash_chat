@@ -1,142 +1,230 @@
-
-import 'package:flutter/material.dart';
-import 'welcome_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:loader_overlay/loader_overlay.dart';
+import 'chat_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const String id = 'registration_screen';
+
+  const RegistrationScreen({Key? key}) : super(key: key);
+
   @override
-  _RegistrationScreenState createState() => _RegistrationScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _auth = FirebaseAuth.instance;
-  bool showSpinner = false;
   late String email;
   late String password;
+  late String confirmPassword;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isPasswordStrong(String password) {
+    return password.length >= 6;
+  }
+
+  void _validateAndRegister() {
+    if (email.trim().isEmpty) {
+      _showError('Please enter an email');
+      return;
+    }
+
+    if (!_isValidEmail(email.trim())) {
+      _showError('Please enter a valid email');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showError('Please enter a password');
+      return;
+    }
+
+    if (!_isPasswordStrong(password)) {
+      _showError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (confirmPassword.isEmpty) {
+      _showError('Please confirm your password');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showError('Passwords do not match');
+      return;
+    }
+
+    _performRegistration();
+  }
+
+  void _performRegistration() async {
+    context.loaderOverlay.show();
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+
+      if (mounted) {
+        context.loaderOverlay.hide();
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          ChatScreen.id,
+          (route) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        context.loaderOverlay.hide();
+        _showError(e.message ?? 'Registration failed');
+      }
+    } catch (e) {
+      if (mounted) {
+        context.loaderOverlay.hide();
+        _showError('An error occurred during registration');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: LoaderOverlay(
         duration: const Duration(milliseconds: 200),
-
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Icon(Icons.chat, size: 100.0, color: Colors.lightBlueAccent),
-              SizedBox(height: 48.0),
-              TextField(
-                keyboardType: TextInputType.emailAddress,
-
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const SizedBox(height: 48.0),
+                const Icon(Icons.chat, size: 100.0, color: Colors.lightBlueAccent),
+                const SizedBox(height: 48.0),
+                TextField(
+                  keyboardType: TextInputType.emailAddress,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.black),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    hintStyle: const TextStyle(color: Colors.black54),
+                    hintText: 'Enter your email',
+                    fillColor: Colors.white,
+                    prefixIcon: const Icon(Icons.email, color: Colors.lightBlueAccent),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
-                  ),
-                  hintStyle: TextStyle(color: Colors.black),
-                  hintText: 'Enter your email',
-                  fillColor: Colors.white,
+                  onChanged: (value) {
+                    email = value;
+                  },
                 ),
-                autofocus: true,
-                onChanged: (value) {
-                  //Do something with the user input.
-                  email = value;
-                },
-              ),
-              SizedBox(height: 10.0),
-              TextField(
-                textAlign: TextAlign.center,
-                decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                const SizedBox(height: 12.0),
+                TextField(
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.black),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    hintStyle: const TextStyle(color: Colors.black54),
+                    hintText: 'Enter your password (6+ characters)',
+                    fillColor: Colors.white,
+                    prefixIcon: const Icon(Icons.lock, color: Colors.lightBlueAccent),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.lightBlueAccent,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
-                  ),
-                  hintStyle: TextStyle(color: Colors.black),
-                  hintText: 'Enter your password',
-                  fillColor: Colors.white,
+                  onChanged: (value) {
+                    password = value;
+                  },
+                  obscureText: _obscurePassword,
                 ),
-                autofocus: true,
-                onChanged: (value) {
-                  //Do something with the user input.
-                  password = value;
-                  if (password.length < 6)
-                  {
-                    print('Password must be at least 6 characters');
-                    return;
-                  }
-                  print(password);
-                },
-                obscureText: true,
-                ),
-
-              SizedBox(height: 10.0),
-              TextField(
-                keyboardType: TextInputType.emailAddress,
-
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                const SizedBox(height: 12.0),
+                TextField(
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.black),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    hintStyle: const TextStyle(color: Colors.black54),
+                    hintText: 'Confirm your password',
+                    fillColor: Colors.white,
+                    prefixIcon: const Icon(Icons.lock, color: Colors.lightBlueAccent),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.lightBlueAccent,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
-                  ),
-                  hintStyle: TextStyle(color: Colors.black),
-                  hintText: 'Confirm your password',
-                  fillColor: Colors.white,
+                  onChanged: (value) {
+                    confirmPassword = value;
+                  },
+                  obscureText: _obscureConfirmPassword,
                 ),
-                autofocus: true,
-                onChanged: (value) {
-                  if (password.length < 6)
-                  {
-                    print('Password must be at least 6 characters');
-                    return;
-                  }
-                  print(password);
-                  //Do something with the user input.
-                  email = value;
-                },
-              ),
-              RoundButton(
-                color: Colors.black,
-                text: 'Register',
-
-                onPressed: () async {
-                  setState(() {
-                    showSpinner = true;
-                    context.loaderOverlay.show();
-                  });
-                  try {
-                    final newUser = await _auth.createUserWithEmailAndPassword(
-                      email: email,
-                      password: password,
-                    );
-                    if (newUser != true) {
-                      Navigator.pushNamed(context, WelcomeScreen.id);}
-                    setState(() {
-                      showSpinner = false;
-                      context.loaderOverlay.hide();
-                    });
-                  } catch (e) {
-                    print(e);
-                  }
-
-                  await Future.delayed(Duration(seconds: 2));
-                },
-              ),
-            ],
+                const SizedBox(height: 24.0),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.lightBlueAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                  onPressed: _validateAndRegister,
+                  child: const Text(
+                    'Register',
+                    style: TextStyle(color: Colors.white, fontSize: 16.0, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
