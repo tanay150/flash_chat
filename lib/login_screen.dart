@@ -1,20 +1,24 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flash_chat/registration_screen.dart';
 import 'package:flutter/material.dart';
-import 'welcome_screen.dart';
 import 'package:loader_overlay/loader_overlay.dart';
+import 'welcome_screen.dart';
+import 'chat_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const String id = 'login_screen';
+
+  const LoginScreen({Key? key}) : super(key: key);
+
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _auth = FirebaseAuth.instance;
-  bool showSpinner = false;
   late String email;
   late String password;
+  bool _obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -23,92 +27,128 @@ class _LoginScreenState extends State<LoginScreen> {
       body: LoaderOverlay(
         duration: const Duration(milliseconds: 250),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Icon(Icons.chat, size: 100.0, color: Colors.lightBlueAccent),
-              SizedBox(height: 48.0),
+              const Icon(Icons.chat, size: 100.0, color: Colors.lightBlueAccent),
+              const SizedBox(height: 48.0),
               TextField(
-                style: TextStyle(color: Colors.black),
+                style: const TextStyle(color: Colors.black),
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                    borderSide: const BorderSide(color: Colors.black),
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                    borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
-                  hintStyle: TextStyle(color: Colors.black),
+                  hintStyle: const TextStyle(color: Colors.black54),
                   hintText: 'Enter your email',
                   fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.email, color: Colors.lightBlueAccent),
                 ),
                 onChanged: (value) {
                   email = value;
                 },
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 8.0),
+              const SizedBox(height: 12.0),
               TextField(
-                style: TextStyle(color: Colors.black),
+                style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                    borderSide: const BorderSide(color: Colors.black),
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.black),
+                    borderSide: const BorderSide(color: Colors.lightBlueAccent, width: 2),
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
-                  hintStyle: TextStyle(color: Colors.black),
+                  hintStyle: const TextStyle(color: Colors.black54),
                   hintText: 'Enter your password',
                   fillColor: Colors.white,
+                  prefixIcon: const Icon(Icons.lock, color: Colors.lightBlueAccent),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.lightBlueAccent,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
                 onChanged: (value) {
                   password = value;
                 },
-                obscureText: true,
+                obscureText: _obscurePassword,
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 24.0),
-              RoundButton(
-                color: Colors.black,
-                text: 'Login',
+              const SizedBox(height: 24.0),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.lightBlueAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
                 onPressed: () async {
-                  setState(() {
-                    showSpinner = true;
-                    context.loaderOverlay.show();
-                  });
-                  await Future.delayed(Duration(seconds: 2));
+                  context.loaderOverlay.show();
                   try {
-                    final user = _auth.signInWithEmailAndPassword(
-                      email: email,
-                      password: password,
+                    await _auth.signInWithEmailAndPassword(
+                      email: email.trim(),
+                      password: password.trim(),
                     );
-                    if (user!= true) {
-                      Navigator.pushNamed(context, WelcomeScreen.id);
-                      await Future.delayed(Duration(seconds: 2));
-                    }
-                    if (user == false) {
-                      await Future.delayed(Duration(seconds: 2));
-                      print('Invalid credentials');
-                      return;
-                    }
-                    setState(() {
-                      showSpinner = false;
+                    if (mounted) {
                       context.loaderOverlay.hide();
-                    });
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        ChatScreen.id,
+                        (route) => false,
+                      );
+                    }
+                  } on FirebaseAuthException catch (e) {
+                    if (mounted) {
+                      context.loaderOverlay.hide();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(e.message ?? 'Login failed'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   } catch (e) {
-                    print(e);
+                    if (mounted) {
+                      context.loaderOverlay.hide();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('An error occurred'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
-                  await Future.delayed(Duration(seconds: 2));
                 },
+                child: const Text(
+                  'Login',
+                  style: TextStyle(color: Colors.white, fontSize: 16.0, fontWeight: FontWeight.bold),
+                ),
               ),
+              const SizedBox(height: 16.0),
               TextButton(
                 onPressed: () {
                   Navigator.pushNamed(context, RegistrationScreen.id);
                 },
-                child: Text(
-                  'Register here?',
-                  style: TextStyle(color: Colors.black),
+                child: const Text(
+                  "Don't have an account? Register here",
+                  style: TextStyle(color: Colors.lightBlueAccent, fontSize: 14.0),
                 ),
               ),
             ],
