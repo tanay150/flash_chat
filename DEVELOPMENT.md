@@ -1,243 +1,366 @@
-# Flash Chat - Development Guide
+# Development Guide
 
-## 🏗️ Architecture Overview
+## Project Setup
 
-This guide explains the architecture and structure of the Flash Chat application.
+### 1. Development Environment
 
-### State Management with Provider
+**Required:**
+- Flutter 3.8.1+
+- Dart 3.4.1+
+- Android SDK 21+ or iOS 11+
+- Firebase CLI (optional)
 
-We use the Provider package for state management. This ensures:
-- Clean separation of concerns
-- Easy testing
-- Reactive UI updates
-- Single source of truth
+**Recommended IDEs:**
+- Android Studio with Flutter plugin
+- VS Code with Flutter extension
+- IntelliJ IDEA
 
-### Data Flow
+### 2. Initial Setup
+
+```bash
+# Clone repository
+git clone https://github.com/tanay150/flash_chat.git
+cd flash_chat
+
+# Get dependencies
+flutter pub get
+
+# Run pub upgrade
+flutter pub upgrade
+
+# Check everything
+flutter doctor
+```
+
+## Architecture Overview
+
+### Layered Architecture
 
 ```
-UI (Screens) 
-    ↓
-Consumers (Provider.watch)
-    ↓
-Providers (State Management)
-    ↓
-Firestore (Database)
+┌─────────────────────────────────┐
+│     Presentation Layer          │
+│  (Screens & UI Components)      │
+└────────────┬────────────────────┘
+             │
+┌────────────┴────────────────────┐
+│   State Management Layer        │
+│   (Provider, ChangeNotifier)    │
+└────────────┬────────────────────┘
+             │
+┌────────────┴────────────────────┐
+│   Business Logic Layer          │
+│   (Providers)                   │
+└────────────┬────────────────────┘
+             │
+┌────────────┴────────────────────┐
+│    Data Access Layer            │
+│  (Firebase, Firestore)          │
+└─────────────────────────────────┘
 ```
 
-## 📂 Folder Structure Explanation
+## Code Style Guide
 
-### `/lib/main.dart`
-- Application entry point
-- Firebase initialization
-- Provider setup
-- Root navigation
+### Naming Conventions
 
-### `/lib/screens/`
-- **auth/** - Authentication screens
-  - `splash_screen.dart` - Loading/intro screen
-  - `login_screen.dart` - User login
-  - `signup_screen.dart` - User registration
-- **chat/** - Chat screens
-  - `chat_list_screen.dart` - List of all chats
-  - `chat_detail_screen.dart` - Individual chat conversation
-
-### `/lib/models/`
-Data models for app entities:
-- `user_model.dart` - User data structure
-- `message_model.dart` - Message data structure
-- `chat_model.dart` - Chat data structure
-
-Each model includes:
-- Constructor
-- `toMap()` - Convert to Firestore format
-- `fromFirestore()` - Convert from Firestore
-- `copyWith()` - Create modified copies
-
-### `/lib/providers/`
-State management classes:
-- `auth_provider.dart` - Authentication logic
-  - User login/signup
-  - Profile management
-  - Logout functionality
-- `chat_provider.dart` - Chat logic
-  - Message sending/receiving
-  - Chat creation
-  - Real-time streams
-
-### `/lib/utils/`
-Reusable utilities:
-- `colors.dart` - Color constants and theme
-- `constants.dart` - App-wide constants
-- `validators.dart` - Input validation (future)
-
-## 🔄 Common Workflows
-
-### Adding a New Screen
-
-1. Create file in `/lib/screens/[category]/new_screen.dart`
-2. Extend `StatefulWidget` or `StatelessWidget`
-3. Use `Consumer<Provider>` to access state
-4. Add navigation in appropriate place
-
-### Adding a New Feature
-
-1. Create data model in `/lib/models/`
-2. Add provider logic in `/lib/providers/`
-3. Create UI screens in `/lib/screens/`
-4. Add navigation between screens
-5. Update Firestore rules if needed
-
-### Working with Firestore
-
+**Variables and Functions**
 ```dart
-// Create
-await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userId)
-    .set(userModel.toMap());
+// camelCase for variables and functions
+String userName;
+void sendMessage() {}
+final messageController = TextEditingController();
+```
 
-// Read (single)
-final doc = await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userId)
-    .get();
-final user = UserModel.fromFirestore(doc);
+**Classes and Types**
+```dart
+// PascalCase for classes
+class UserModel {}
+class ChatProvider extends ChangeNotifier {}
+```
 
-// Update
-await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userId)
-    .update({'username': newUsername});
+**Constants**
+```dart
+// camelCase for constants
+const double paddingSmall = 8.0;
+const String appTitle = 'Flash Chat';
+```
 
-// Delete
-await FirebaseFirestore.instance
-    .collection('users')
-    .doc(userId)
-    .delete();
+**Files**
+```dart
+// snake_case for files
+user_model.dart
+auth_provider.dart
+chat_list_screen.dart
+```
 
-// Real-time Stream
-Stream<List<ChatModel>> getChats(String userId) {
-  return FirebaseFirestore.instance
-      .collection('chats')
-      .where('participants', arrayContains: userId)
-      .snapshots()
-      .map((snapshot) => snapshot.docs
-          .map((doc) => ChatModel.fromFirestore(doc))
-          .toList());
+### Dart Formatting
+
+```bash
+# Format all files
+flutter format .
+
+# Format specific file
+flutter format lib/main.dart
+
+# Check without formatting
+dart format --line-length=80 lib/
+```
+
+### Linting
+
+```bash
+# Run analysis
+flutter analyze
+
+# Check specific file
+flutter analyze lib/main.dart
+```
+
+## File Organization
+
+### Screens Structure
+
+```
+screens/
+├── auth/
+│   ├── login_screen.dart
+│   ├── signup_screen.dart
+│   ├── welcome_screen.dart
+│   └── splash_screen.dart
+└── chat/
+    ├── chat_list_screen.dart
+    ├── chat_detail_screen.dart
+    └── widgets/
+        ├── message_bubble.dart
+        └── chat_list_item.dart
+```
+
+### Best Practices
+
+1. **One Screen per File**
+   - Each screen is its own file
+   - Avoid combining multiple screens
+
+2. **Reusable Widgets**
+   - Extract common UI into widgets
+   - Keep widgets in `widgets/` subfolder
+   - Single responsibility principle
+
+3. **State Management**
+   - Use Provider for global state
+   - Local state in StatefulWidget
+   - Clear separation of concerns
+
+## Development Workflow
+
+### 1. Feature Development
+
+```bash
+# Create feature branch
+git checkout -b feature/user-profile
+
+# Develop feature
+flutter run
+
+# Test changes
+flutter test
+
+# Format code
+flutter format .
+
+# Commit changes
+git add .
+git commit -m "feat: add user profile feature"
+
+# Push to GitHub
+git push origin feature/user-profile
+
+# Create Pull Request on GitHub
+```
+
+### 2. Running the App
+
+```bash
+# Run on connected device/emulator
+flutter run
+
+# Run with specific build type
+flutter run --debug
+flutter run --release
+flutter run --profile
+
+# Run with verbose logging
+flutter run -v
+
+# Run specific file
+flutter run -t lib/main_dev.dart
+```
+
+### 3. Testing
+
+```bash
+# Run all tests
+flutter test
+
+# Run specific test file
+flutter test test/providers/auth_provider_test.dart
+
+# Run tests with coverage
+flutter test --coverage
+
+# View coverage report
+genhtml coverage/lcov.info -o coverage/html
+open coverage/html/index.html
+```
+
+### 4. Debugging
+
+```bash
+# Run with verbose output
+flutter run -v
+
+# Enable VM service on port 8181
+flutter run --vm-service-port=8181
+
+# Attach debugger to running app
+flutter attach
+
+# Use DevTools
+flutter pub global activate devtools
+devtools
+```
+
+## Firebase Configuration
+
+### Firestore Security Rules
+
+Create `firestore.rules`:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      allow read, write: if request.auth.uid in resource.data.participantIds;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read, write: if request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+      }
+    }
+  }
 }
 ```
 
-## 🧪 Testing
+## Common Issues & Solutions
 
-### Unit Tests
-```dart
-test('UserModel.fromFirestore creates correct object', () {
-  // Arrange
-  final testData = {...};
-  
-  // Act
-  final user = UserModel.fromFirestore(testData);
-  
-  // Assert
-  expect(user.uid, 'test-uid');
-});
-```
-
-### Widget Tests
-```dart
-testWidgets('LoginScreen shows error on invalid email', (tester) async {
-  await tester.pumpWidget(const LoginScreen());
-  
-  await tester.enterText(find.byType(TextField), 'invalid');
-  await tester.tap(find.byType(ElevatedButton));
-  await tester.pump();
-  
-  expect(find.byType(SnackBar), findsOneWidget);
-});
-```
-
-## 🔐 Security Best Practices
-
-1. **Never commit sensitive data**
-   - Firebase config files
-   - API keys
-   - Passwords
-
-2. **Use environment variables**
-   ```dart
-   const String firebaseProjectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
-   ```
-
-3. **Validate input on client and server**
-4. **Use Firebase Security Rules**
-5. **Enable HTTPS for all API calls**
-
-## 🐛 Debugging Tips
-
-### Enable Flutter DevTools
+### Issue: Firebase Initialization Error
+**Solution:**
 ```bash
-flutter pub global activate devtools
-flutter pub global run devtools
+# Clean build
+flutter clean
+flutter pub get
+
+# Rebuild
+flutter run
 ```
 
-### Check Firestore Data
-- Use Firebase Console
-- Set breakpoints in providers
-- Use `print()` for quick debugging
-- Use Flutter's built-in debugger
+### Issue: Hot Reload Not Working
+**Solution:**
+```bash
+# Stop app
+# Press 'q' in terminal
 
-### Common Issues
+# Run again
+flutter run
 
-**Issue**: App crashes on startup
-- **Solution**: Check Firebase initialization in `main.dart`
+# Try hot restart instead
+# Press 'R' in terminal
+```
 
-**Issue**: Messages not appearing
-- **Solution**: Check Firestore security rules, verify user is authenticated
+### Issue: Dependency Conflicts
+**Solution:**
+```bash
+# Update pub cache
+flutter pub cache repair
 
-**Issue**: Provider not updating UI
-- **Solution**: Ensure using `Consumer` or `watch`, check `notifyListeners()`
+# Get fresh dependencies
+flutter pub get
 
-## 📚 Resources
+# Upgrade to latest compatible versions
+flutter pub upgrade
+```
 
-- [Flutter Documentation](https://flutter.dev/docs)
-- [Firebase for Flutter](https://firebase.flutter.dev/)
+## Performance Optimization
+
+### 1. Widget Building
+```dart
+// Bad: Rebuilds entire list
+children: snapshot.data!.map((item) => Container(...)).toList()
+
+// Good: Use ListView.builder
+ListView.builder(
+  itemBuilder: (context, index) => Container(...),
+  itemCount: items.length,
+)
+```
+
+### 2. State Management
+```dart
+// Bad: Rebuilds entire widget
+build(context) {
+  return Consumer<Provider>(
+    builder: (context, provider, _) {
+      return Text(provider.data);
+    },
+  );
+}
+
+// Good: Use selector for specific data
+build(context) {
+  return Selector<Provider, String>(
+    selector: (context, provider) => provider.data,
+    builder: (context, data, _) => Text(data),
+  );
+}
+```
+
+### 3. Image Optimization
+```dart
+// Always specify size
+Image.network(
+  url,
+  width: 100,
+  height: 100,
+  fit: BoxFit.cover,
+)
+```
+
+## Release Checklist
+
+- [ ] Update version in `pubspec.yaml`
+- [ ] Update `CHANGELOG.md`
+- [ ] Run `flutter test`
+- [ ] Run `flutter analyze`
+- [ ] Run `flutter format .`
+- [ ] Test on multiple devices/screen sizes
+- [ ] Update `README.md` if needed
+- [ ] Tag release on GitHub
+- [ ] Build APK/IPA
+
+## Useful Resources
+
+- [Flutter Docs](https://flutter.dev/docs)
+- [Dart Docs](https://dart.dev/guides)
+- [Firebase Docs](https://firebase.google.com/docs)
 - [Provider Package](https://pub.dev/packages/provider)
-- [Dart Language Tour](https://dart.dev/guides/language/language-tour)
+- [Firestore Docs](https://cloud.google.com/firestore/docs)
 
-## 🚀 Performance Tips
+## Questions?
 
-1. **Use streams for real-time data**
-   ```dart
-   StreamBuilder(
-     stream: provider.getChatsStream(),
-     builder: (context, snapshot) {
-       // Build UI
-     },
-   )
-   ```
-
-2. **Implement pagination for large lists**
-   ```dart
-   .limit(10) // Only fetch 10 at a time
-   ```
-
-3. **Use `const` constructors**
-   ```dart
-   const SizedBox(height: 16) // Immutable widgets
-   ```
-
-4. **Lazy load images**
-   ```dart
-   Image.network(
-     url,
-     cacheHeight: 200,
-     cacheWidth: 200,
-   )
-   ```
-
-## 📞 Need Help?
-
-- Check existing issues on GitHub
-- Read Flutter documentation
-- Ask on Flutter community channels
-- Create a detailed issue with reproduction steps
+Create an issue or contact the maintainers!
